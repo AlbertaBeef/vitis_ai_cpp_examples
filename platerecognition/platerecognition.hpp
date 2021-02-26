@@ -36,6 +36,8 @@ private:
   std::unique_ptr<vitis::ai::SSD> ssd_;
   std::unique_ptr<vitis::ai::PlateDetect> plate_detect_;
   std::unique_ptr<vitis::ai::PlateNum> plate_num_;
+
+  bool debug;
 };
 
 std::unique_ptr<PlateRecognition> PlateRecognition::create() {
@@ -49,7 +51,16 @@ PlateRecognition::PlateRecognition()
     : ssd_{vitis::ai::SSD::create("ssd_traffic_pruned_0_9")},
       plate_detect_{vitis::ai::PlateDetect::create("plate_detect")},
       plate_num_{vitis::ai::PlateNum::create("plate_num")} 
-      {}
+{
+  const char * val = std::getenv( "PLATERECOGNITION_DEBUG" );
+  if ( val == nullptr ) {
+    debug = false;
+  }
+  else {
+    cout << "[INFO] PLATERECOGNITION_DEBUG" << endl;
+    debug = true;
+  }
+}
 
 
 std::vector<vitis::ai::PlateNumResult>
@@ -57,6 +68,12 @@ PlateRecognition::run(const cv::Mat &input_image) {
   std::vector<vitis::ai::PlateNumResult> mt_results;
   cv::Mat image;
   image = input_image;
+
+  static int frame_number = 0;
+  frame_number++;
+  if ( debug == true ) {
+    cout << "Frame " << frame_number << endl;
+  }
 
   // run vehicle detection (SSD)
   auto ssd_results = ssd_->run(image);
@@ -91,14 +108,14 @@ PlateRecognition::run(const cv::Mat &input_image) {
       (int)(bbox.height * image.rows)
       };
 
-    // only consider SSD results with confidence of 80% or more
-    if ( bbox.score < 0.80 ) continue; 
+    // only consider SSD results with confidence of 75% or more
+    //if ( bbox.score < 0.75 ) continue; 
 
     cv::rectangle(image, bbox_roi, color);
-    cv::putText(image,label,cv::Point(bbox_roi.x,bbox_roi.y),cv::FONT_HERSHEY_SIMPLEX,0.5,color);
-#if 1
-    cout << "SSD : label=" << bbox.label << " x,y,w,h=" << bbox_roi.x << "," << bbox_roi.y << "," << bbox_roi.width << "," << bbox_roi.height << " confidence=" << bbox.score << endl;
-#endif
+    cv::putText(image,label,cv::Point(bbox_roi.x,bbox_roi.y),cv::FONT_HERSHEY_SIMPLEX,0.5,color,2);
+    if ( debug == true ) {
+      cout << "  SSD : label=" << bbox.label << " x,y,w,h=" << bbox_roi.x << "," << bbox_roi.y << "," << bbox_roi.width << "," << bbox_roi.height << " confidence=" << bbox.score << endl;
+    }
 
     // only look for license plates on vehicles
     if ( bbox.label != 1 ) continue; 
@@ -120,9 +137,9 @@ PlateRecognition::run(const cv::Mat &input_image) {
 
     cv::rectangle(bbox_img, roi, cv::Scalar(0, 0, 255));
 
-#if 1
-    cout << "  PlateDetect : x,y,w,h=" << roi.x << "," << roi.y << "," << roi.width << "," << roi.height << " confidence=" << plate_bbox.score << endl;
-#endif
+    if ( debug == true ) {
+      cout << "    PlateDetect : x,y,w,h=" << roi.x << "," << roi.y << "," << roi.width << "," << roi.height << " confidence=" << plate_bbox.score << endl;
+    }
 
     if (0 <= roi.x && 0 <= roi.width && roi.x + roi.width <= bbox_img.cols && 0 <= roi.y && 0 <= roi.height && roi.y + roi.height <= bbox_img.rows) {
 
@@ -132,10 +149,10 @@ PlateRecognition::run(const cv::Mat &input_image) {
       auto plate_num_result = plate_num_->run(sub_img);
       //process_result(sub_img, plate_num_result, false);
 
-      cv::putText(image,plate_num_result.plate_number,cv::Point(roi.x,roi.y),cv::FONT_HERSHEY_SIMPLEX,1.0,cv::Scalar(0,0,255));
-#if 1
-      cout << "    PlateNum : size=" << plate_num_result.width << "," << plate_num_result.height << " color=" << plate_num_result.plate_color << " number=[" << plate_num_result.plate_number << "]" << endl;
-#endif
+      cv::putText(bbox_img,plate_num_result.plate_number,cv::Point(roi.x,roi.y),cv::FONT_HERSHEY_SIMPLEX,0.5,cv::Scalar(0,0,255),2);
+      if ( debug == true ) {
+        cout << "      PlateNum : size=" << plate_num_result.width << "," << plate_num_result.height << " color=" << plate_num_result.plate_color << " number=[" << plate_num_result.plate_number << "]" << endl;
+      }
 
       mt_results.emplace_back(plate_num_result);
     }
