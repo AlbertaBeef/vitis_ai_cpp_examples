@@ -108,8 +108,8 @@ PlateRecognition::run(const cv::Mat &input_image) {
       (int)(bbox.height * image.rows)
       };
 
-    // only consider SSD results with confidence of 75% or more
-    //if ( bbox.score < 0.75 ) continue; 
+    // only consider SSD results with confidence of 80% or more
+    if ( bbox.score < 0.80 ) continue; 
 
     cv::rectangle(image, bbox_roi, color);
     cv::putText(image,label,cv::Point(bbox_roi.x,bbox_roi.y),cv::FONT_HERSHEY_SIMPLEX,0.5,color,2);
