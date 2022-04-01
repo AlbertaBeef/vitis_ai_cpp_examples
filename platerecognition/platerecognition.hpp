@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Avnet Inc.
+ * Copyright 2022 Avnet Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ struct PlateRecognition {
   static std::unique_ptr<PlateRecognition> create();
   PlateRecognition();
   std::vector<vitis::ai::PlateNumResult> run(const cv::Mat &input_image);
+  std::vector<std::vector<vitis::ai::PlateNumResult>> run(const std::vector<cv::Mat>& input_images);
   int getInputWidth();
   int getInputHeight();
   size_t get_input_batch();
@@ -159,6 +160,15 @@ PlateRecognition::run(const cv::Mat &input_image) {
   }
 
   return mt_results;
+}
+
+std::vector<std::vector<vitis::ai::PlateNumResult>> PlateRecognition::run(
+    const std::vector<cv::Mat>& input_images) {
+  std::vector<std::vector<vitis::ai::PlateNumResult>> rets;
+  for (auto& image : input_images) {
+    rets.push_back(run(image));
+  }
+  return rets;
 }
       
 } // namespace ai
